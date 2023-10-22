@@ -28,10 +28,10 @@ func main() {
 	if tlsEnabled == "true" {
 		var certPath, keyPath string
 		if certPath = os.Getenv("CERT_PATH"); certPath == "" {
-			certPath = "./cert/localhost.pem"
+			certPath = "./certs/tls.crt"
 		}
 		if keyPath = os.Getenv("KEY_PATH"); keyPath == "" {
-			keyPath = "./cert/localhost-key.pem"
+			keyPath = "./certs/tls.key"
 		}
 		r.RunTLS(addr, certPath, keyPath)
 	} else {
