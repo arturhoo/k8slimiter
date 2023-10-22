@@ -1,6 +1,8 @@
 # k8slimiter
 
-Rate limit based Validating Admission Webhooks for Kubernetes
+Rate Limits through Validating Webhooks in Kubernetes
+
+For context, please refer to: [Rate limiting Kubernetes pod creation with dynamic admission control](https://www.artur-rodrigues.com/tech/2023/10/22/rate-limiting-kubernetes-pod-creation.html)
 
 ## Local Development
 
@@ -31,6 +33,8 @@ date: Sun, 22 Oct 2023 09:05:35 GMT
 ```
 
 ## Testing Locally with Kind
+
+### Setup
 
 Create a cluster:
 
@@ -81,3 +85,15 @@ date: Sun, 22 Oct 2023 09:09:19 GMT
     "status": "ok"
 }
 ```
+
+### Rate limit test
+
+The rate limit is set to 1 pod per 10 seconds. To test this, try scheduling more than one pod in a short period of time:
+
+```
+$ kubectl run "tmp-pod-$(date +%s)" --restart Never --image debian:12-slim -- sleep 1
+pod/tmp-pod-1698005111 created
+$ kubectl run "tmp-pod-$(date +%s)" --restart Never --image debian:12-slim -- sleep 1
+Error from server: admission webhook "k8slimiter-pod-creation.k8slimiter.svc" denied the request: rate limit exceeded
+```
+
