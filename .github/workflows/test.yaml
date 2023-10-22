@@ -20,6 +20,8 @@ jobs:
           load: true
           tags: k8slimiter:0.1.0
           file: Dockerfile
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Create k8s Kind Cluster
         uses: helm/kind-action@v1.8.0
@@ -41,3 +43,17 @@ jobs:
         run: |
           kubectl apply -f manifests/k8slimiter.yaml
           kubectl wait --for=condition=available --timeout=60s deployment/k8slimiter-deployment -n k8slimiter
+          sleep 10
+
+      - name: Test k8slimiter
+        run: |
+          kubectl run "tmp-pod-$(date +%s)" --restart Never --image debian:12-slim -- sleep 1
+
+          sleep 2
+          if kubectl run "tmp-pod-$(date +%s)" --restart Never --image debian:12-slim -- sleep 1; then
+            echo "Error: kubectl run command did not exit with status code 1"
+            exit 1
+          fi
+
+          sleep 10
+          kubectl run "tmp-pod-$(date +%s)" --restart Never --image debian:12-slim -- sleep 1
