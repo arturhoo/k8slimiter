@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: k8slimiter
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: k8slimiter-certificate
+  namespace: k8slimiter
+  labels:
+    app.kubernetes.io/instance: k8slimiter
+spec:
+  secretName: k8slimiter-certificate
+  dnsNames:
+    - k8slimiter-service.k8slimiter.svc
+  issuerRef:
+    name: selfsigned
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned
+  namespace: k8slimiter
+  labels:
+    app.kubernetes.io/instance: k8slimiter
+spec:
+  selfSigned: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8slimiter-deployment
+  namespace: k8slimiter
+  labels:
+    app.kubernetes.io/instance: k8slimiter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: k8slimiter
+      app.kubernetes.io/instance: k8slimiter
+  template:
+    metadata:
+      labels:
+        app: k8slimiter
+        app.kubernetes.io/instance: k8slimiter
+    spec:
+      containers:
+        - name: k8slimiter
+          image: k8slimiter:0.1.0
+          env:
+            - name: TLS_ENABLED
+              value: "true"
+            - name: CERT_PATH
+              value: /etc/certs/tls.crt
+            - name: KEY_PATH
+              value: /etc/certs/tls.key
+          ports:
+            - containerPort: 8443
+          volumeMounts:
+            - name: k8slimiter-certificate
+              mountPath: /etc/certs
+              readOnly: true
+      volumes:
+        - name: k8slimiter-certificate
+          secret:
+            secretName: k8slimiter-certificate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: k8slimiter-service
+  namespace: k8slimiter
+  labels:
+    app.kubernetes.io/instance: k8slimiter
+spec:
+  selector:
+    app: k8slimiter
+  ports:
+    - name: https
+      port: 443
+      targetPort: 8443
