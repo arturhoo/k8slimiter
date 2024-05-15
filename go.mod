@@ -6,7 +6,7 @@ require (
 	github.com/gin-gonic/gin v1.10.0
 	golang.org/x/time v0.5.0
 	k8s.io/api v0.30.0
-	k8s.io/apimachinery v0.30.0
+	k8s.io/apimachinery v0.30.1
 )
 
 require (
