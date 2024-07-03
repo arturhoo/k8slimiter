@@ -1,4 +1,4 @@
-FROM golang:1.22.3 as build
+FROM golang:1.23rc1 as build
 
 WORKDIR /go/src/k8slimiter
 COPY go.mod go.sum ./
