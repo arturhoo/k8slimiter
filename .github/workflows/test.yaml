@@ -30,7 +30,7 @@ jobs:
 
       - name: Install cert-manager
         run: |
-          kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.1/cert-manager.yaml
+          kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.15.1/cert-manager.yaml
           kubectl wait --for=condition=available --timeout=60s deployment/cert-manager -n cert-manager
           kubectl wait --for=condition=available --timeout=60s deployment/cert-manager-cainjector -n cert-manager
           kubectl wait --for=condition=available --timeout=60s deployment/cert-manager-webhook -n cert-manager
