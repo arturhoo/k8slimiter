@@ -46,6 +46,7 @@ spec:
         app: k8slimiter
         app.kubernetes.io/instance: k8slimiter
     spec:
+      serviceAccountName: k8slimiter
       containers:
         - name: k8slimiter
           image: k8slimiter:0.1.0
@@ -104,3 +105,50 @@ webhooks:
         resources: ["pods"]
     failurePolicy: Ignore
     sideEffects: None
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: k8slimiter
+  namespace: k8slimiter
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k8slimiter-config
+  namespace: k8slimiter
+data:
+  config.yaml: |
+    defaultLimit: 0.1
+    rules:
+      - labels:
+          app: myapp
+        ratePerSec: 0.1
+      - labels:
+          project: critical-service
+        ratePerSec: 0.2
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: k8slimiter-config-reader
+  namespace: k8slimiter
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["k8slimiter-config"]
+    verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: k8slimiter-config-reader-binding
+  namespace: k8slimiter
+subjects:
+  - kind: ServiceAccount
+    name: k8slimiter
+    namespace: k8slimiter
+roleRef:
+  kind: Role
+  name: k8slimiter-config-reader
+  apiGroup: rbac.authorization.k8s.io

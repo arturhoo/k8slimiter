@@ -1,0 +1,38 @@
+run:
+  timeout: 5m
+  allow-parallel-runners: true
+linters:
+  disable-all: true
+  fast: false
+  enable:
+    - bodyclose
+    - durationcheck
+    - errcheck
+    - exportloopref
+    - goconst
+    - gocritic
+    - gocyclo
+    - gofmt
+    - gofumpt
+    - goimports
+    - gomodguard
+    - gosimple
+    - govet
+    - ineffassign
+    - lll
+    - misspell
+    - prealloc
+    - revive
+    - staticcheck
+    - tenv
+    - typecheck
+    - unconvert
+    - unused
+    - wastedassign
+    - whitespace
+linters-settings:
+  gocyclo:
+    min-complexity: 40
+  errcheck:
+    check-type-assertions: true
+    check-blank: true

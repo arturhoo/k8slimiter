@@ -57,7 +57,7 @@ $ kind load docker-image k8slimiter:0.1.0
 Install cert-manager in the cluster:
 
 ```
-$ kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.1/cert-manager.yaml
+$ kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.15.1/cert-manager.yaml
 ```
 
 Finally, install k8slimiter:
@@ -96,4 +96,3 @@ pod/tmp-pod-1698005111 created
 $ kubectl run "tmp-pod-$(date +%s)" --restart Never --image debian:12-slim -- sleep 1
 Error from server: admission webhook "k8slimiter-pod-creation.k8slimiter.svc" denied the request: rate limit exceeded
 ```
-
