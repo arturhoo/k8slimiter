@@ -1,32 +1,32 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"golang.org/x/time/rate"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func main() {
-	r := gin.Default()
+	http.HandleFunc("/validate", validatingHandler)
+	http.HandleFunc("/healthz", healthzHandler)
+	http.HandleFunc("/livez", livezHandler)
 
-	r.POST("/validate", validatingHandler)
-	r.GET("/healthz", healthzHandler)
-	r.GET("/livez", livezHandler)
-
-	startServer(r)
+	startServer()
 }
 
 var limiter = rate.NewLimiter(rate.Every(10*time.Second), 1)
 
-func validatingHandler(c *gin.Context) {
+func validatingHandler(w http.ResponseWriter, r *http.Request) {
 	var review admissionv1.AdmissionReview
-	if err := c.Bind(&review); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&review); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -47,22 +47,32 @@ func validatingHandler(c *gin.Context) {
 			Message: msg,
 		},
 	}
-	c.JSON(200, review)
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(review); err != nil {
+		http.Error(w, "Error encoding response: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
-func healthzHandler(c *gin.Context) {
-	c.JSON(200, gin.H{
-		"status": "ok",
-	})
+func healthzHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	err := json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	if err != nil {
+		http.Error(w, "Error encoding response: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
-func livezHandler(c *gin.Context) {
-	c.JSON(200, gin.H{
-		"status": "ok",
-	})
+func livezHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	err := json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	if err != nil {
+		http.Error(w, "Error encoding response: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
-func startServer(r *gin.Engine) {
+func startServer() {
 	host := os.Getenv("HOST")
 	port := os.Getenv("PORT")
 	tlsEnabled := os.Getenv("TLS_ENABLED")
@@ -83,8 +93,8 @@ func startServer(r *gin.Engine) {
 		if keyPath = os.Getenv("KEY_PATH"); keyPath == "" {
 			keyPath = "./certs/tls.key"
 		}
-		log.Fatal(r.RunTLS(addr, certPath, keyPath))
+		log.Fatal(http.ListenAndServeTLS(addr, certPath, keyPath, nil))
 	} else {
-		log.Fatal(r.Run(addr))
+		log.Fatal(http.ListenAndServe(addr, nil))
 	}
 }
