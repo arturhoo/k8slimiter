@@ -119,7 +119,10 @@ metadata:
   namespace: k8slimiter
 data:
   config.yaml: |
-    defaultLimit: 0.1
+    defaultLimit:
+      labels: {}
+      ratePerSec: 0.1
+      burst: 1
     rules:
       - labels:
           app: myapp
