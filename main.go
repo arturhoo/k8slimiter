@@ -80,8 +80,8 @@ func makeLimiters() {
 	if len(rateLimitConfig.DefaultLimit.Labels) > 0 {
 		log.Fatalf("Error: labels set on default limit")
 	}
-	if rateLimitConfig.DefaultLimit.RatePerSec == 0 {
-		log.Println("Not defining a defalut limiter")
+	if rateLimitConfig.DefaultLimit.RatePerSec == 0 || rateLimitConfig.DefaultLimit.Burst == 0 {
+		log.Println("Not defining a default limiter")
 	} else {
 		limiters["default"] = rate.NewLimiter(
 			rate.Limit(rateLimitConfig.DefaultLimit.RatePerSec),
@@ -91,6 +91,10 @@ func makeLimiters() {
 
 	for _, rule := range rateLimitConfig.Rules {
 		key := generateKeyFromLabels(rule.Labels)
+		if rule.Burst == 0 {
+			log.Println("Found burst of 0, setting to 1")
+			rule.Burst = 1
+		}
 		limiter := rate.NewLimiter(rate.Limit(rule.RatePerSec), rule.Burst)
 		limiters[key] = limiter
 	}
