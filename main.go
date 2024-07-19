@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -15,8 +14,6 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 type RateLimit struct {
@@ -47,28 +44,17 @@ func main() {
 }
 
 func loadRateLimitConfig() {
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		log.Fatalf("Error getting in-cluster config: %v", err)
-	}
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		log.Fatalf("Error creating clientset: %v", err)
+	configPath := os.Getenv("CONFIG_PATH")
+	if configPath == "" {
+		log.Fatal("CONFIG_PATH environment variable is not set")
 	}
 
-	namespace, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	yamlFile, err := os.ReadFile(configPath)
 	if err != nil {
-		log.Fatalf("Error reading namespace: %v", err)
+		log.Fatalf("Error reading config file: %v", err)
 	}
 
-	cms := clientset.CoreV1().ConfigMaps(string(namespace))
-	cm, err := cms.Get(context.Background(), "k8slimiter-config", metav1.GetOptions{})
-	if err != nil {
-		log.Fatalf("Error getting ConfigMap: %v", err)
-	}
-
-	yamlConfig := cm.Data["config.yaml"]
-	err = yaml.Unmarshal([]byte(yamlConfig), &rateLimitConfig)
+	err = yaml.Unmarshal(yamlFile, &rateLimitConfig)
 	if err != nil {
 		log.Fatalf("Error unmarshalling config: %v", err)
 	}
