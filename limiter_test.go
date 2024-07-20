@@ -119,14 +119,20 @@ func TestValidatingHandler(t *testing.T) {
 			Containers: []corev1.Container{{Name: "test", Image: "test"}},
 		},
 	}
-	rawPod, _ := json.Marshal(pod)
+	rawPod, err := json.Marshal(pod)
+	if err != nil {
+		t.Fatalf("Failed to marshal pod: %v", err)
+	}
 	review := admissionv1.AdmissionReview{
 		Request: &admissionv1.AdmissionRequest{
 			Kind:   metav1.GroupVersionKind{Kind: "Pod"},
 			Object: runtime.RawExtension{Raw: rawPod},
 		},
 	}
-	body, _ := json.Marshal(review)
+	body, err := json.Marshal(review)
+	if err != nil {
+		t.Fatalf("Failed to marshal review: %v", err)
+	}
 
 	// First request should be allowed
 	req := httptest.NewRequest("POST", "/validate", bytes.NewBuffer(body))
@@ -134,7 +140,7 @@ func TestValidatingHandler(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code)
 	var response admissionv1.AdmissionReview
-	err := json.Unmarshal(rr.Body.Bytes(), &response)
+	err = json.Unmarshal(rr.Body.Bytes(), &response)
 	require.NoError(t, err)
 	assert.True(t, response.Response.Allowed)
 
