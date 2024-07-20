@@ -34,14 +34,13 @@ type RateLimitConfig struct {
 
 var (
 	rateLimitConfig RateLimitConfig
-	limiters        map[string]*rate.Limiter
 )
 
 var knownKinds = []string{"Pod", "Deployment", "StatefulSet"}
 
 func main() {
 	loadRateLimitConfig()
-	makeLimiters()
+	createLimiters()
 
 	http.HandleFunc("/validate", validatingHandler)
 	http.HandleFunc("/healthz", healthzHandler)
@@ -67,9 +66,7 @@ func loadRateLimitConfig() {
 	}
 }
 
-func makeLimiters() {
-	limiters = make(map[string]*rate.Limiter)
-
+func createLimiters() {
 	if len(rateLimitConfig.DefaultLimit.Labels) > 0 {
 		log.Fatalf("Error: labels set on default limit")
 	}
@@ -83,27 +80,26 @@ func makeLimiters() {
 		len(rateLimitConfig.DefaultLimit.Kinds) == 0 {
 		log.Println("Not defining a default limiter")
 	} else {
-		key := generateKeyFromLabelsAndKinds(rateLimitConfig.DefaultLimit.Labels, rateLimitConfig.DefaultLimit.Kinds)
-		limiters[key] = rate.NewLimiter(
+		rateLimitConfig.DefaultLimit.Limiter = rate.NewLimiter(
 			rate.Limit(rateLimitConfig.DefaultLimit.RatePerSec),
 			rateLimitConfig.DefaultLimit.Burst,
 		)
-		log.Printf("created limiter %s\n", key)
+		log.Printf("created default limiter")
 	}
 
-	for _, rule := range rateLimitConfig.Rules {
+	for i := range rateLimitConfig.Rules {
+		rule := &rateLimitConfig.Rules[i]
 		for _, kind := range rule.Kinds {
 			if !slices.Contains(knownKinds, kind) {
-				log.Fatalf("Error: unknown kind %s in default limit", kind)
+				log.Fatalf("Error: unknown kind %s in rule", kind)
 			}
 		}
-		key := generateKeyFromLabelsAndKinds(rule.Labels, rule.Kinds)
 		if rule.Burst == 0 {
 			log.Println("Found burst of 0, setting to 1")
 			rule.Burst = 1
 		}
-		log.Printf("created limiter %s\n", key)
-		limiters[key] = rate.NewLimiter(rate.Limit(rule.RatePerSec), rule.Burst)
+		rule.Limiter = rate.NewLimiter(rate.Limit(rule.RatePerSec), rule.Burst)
+		log.Printf("created limiter for rule %d", i)
 	}
 }
 
@@ -197,23 +193,15 @@ func livezHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 func getLimiter(kind string, labels map[string]string) (*rate.Limiter, error) {
-	key := getLimiterKey(kind, labels)
-	if limiter, found := limiters[key]; found {
-		return limiter, nil
-	}
-	return nil, fmt.Errorf("no limiter found for key %s", key)
-}
-
-func getLimiterKey(kind string, labels map[string]string) string {
 	for _, rule := range rateLimitConfig.Rules {
 		if labelsMatchAndKindInList(labels, rule.Labels, kind, rule.Kinds) {
-			return generateKeyFromLabelsAndKinds(rule.Labels, rule.Kinds)
+			return rule.Limiter, nil
 		}
 	}
 	if labelsMatchAndKindInList(labels, rateLimitConfig.DefaultLimit.Labels, kind, rateLimitConfig.DefaultLimit.Kinds) {
-		return generateKeyFromLabelsAndKinds(rateLimitConfig.DefaultLimit.Labels, rateLimitConfig.DefaultLimit.Kinds)
+		return rateLimitConfig.DefaultLimit.Limiter, nil
 	}
-	return ""
+	return nil, fmt.Errorf("no limiter found for kind %s and labels %v", kind, labels)
 }
 
 func labelsMatchAndKindInList(labels, ruleLabels map[string]string, kind string, ruleKinds []string) bool {
