@@ -47,13 +47,22 @@ jobs:
 
       - name: Test k8slimiter
         run: |
-          kubectl run "tmp-pod-$(date +%s)" --restart Never --image debian:12-slim -- sleep 1
+          kubectl run "tmp-pod-$(date +%s)" --restart Never --image alpine -- sleep 1
 
           sleep 2
-          if kubectl run "tmp-pod-$(date +%s)" --restart Never --image debian:12-slim -- sleep 1; then
+          if kubectl run "tmp-pod-$(date +%s)" --restart Never --image alpine -- sleep 1; then
             echo "Error: kubectl run command did not exit with status code 1"
             exit 1
           fi
 
           sleep 10
-          kubectl run "tmp-pod-$(date +%s)" --restart Never --image debian:12-slim -- sleep 1
+          kubectl run "tmp-pod-$(date +%s)" --restart Never --image alpine -- sleep 1
+
+          sleep 10
+          kubectl create deployment "tmp-deploy-$(date +%s)" --image=nginx
+
+          sleep 2
+          if kubectl create deployment "tmp-deploy-$(date +%s)" --image=nginx; then
+            echo "Error: kubectl create deployment command did not exit with status code 1"
+            exit 1
+          fi
