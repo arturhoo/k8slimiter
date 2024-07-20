@@ -91,8 +91,15 @@ date: Sun, 22 Oct 2023 09:09:19 GMT
 The rate limit is set to 1 pod per 10 seconds. To test this, try scheduling more than one pod in a short period of time:
 
 ```
-$ kubectl run "tmp-pod-$(date +%s)" --restart Never --image debian:12-slim -- sleep 1
+$ kubectl run "tmp-pod-$(date +%s)" --restart Never --image alpine -- sleep 1
 pod/tmp-pod-1698005111 created
-$ kubectl run "tmp-pod-$(date +%s)" --restart Never --image debian:12-slim -- sleep 1
+$ kubectl run "tmp-pod-$(date +%s)" --restart Never --image alpine -- sleep 1
 Error from server: admission webhook "k8slimiter-pod-creation.k8slimiter.svc" denied the request: rate limit exceeded
+```
+
+For testing deployments or statefulsets:
+
+```
+$ kubectl create deployment "tmp-deploy-$(date +%s)" --image=nginx
+$ NAME="tmp-sts-$(date +%s)"; echo '{"apiVersion":"apps/v1","kind":"StatefulSet","metadata":{"name":"'$NAME'"},"spec":{"serviceName":"'$NAME'","replicas":1,"selector":{"matchLabels":{"app":"'$NAME'"}},"template":{"metadata":{"labels":{"app":"'$NAME'"}},"spec":{"containers":[{"name":"nginx","image":"nginx"}]}}}}' | kubectl apply -f -
 ```
