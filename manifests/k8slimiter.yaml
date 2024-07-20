@@ -38,13 +38,16 @@ data:
       labels: {}
       ratePerSec: 0.1
       burst: 1
+      kinds: ["Pod", "Deployment", "StatefulSet"]
     rules:
       - labels:
           app: myapp
         ratePerSec: 0.1
+        kinds: ["Pod", "Deployment", "StatefulSet"]
       - labels:
           project: critical-service
         ratePerSec: 0.2
+        kinds: ["Pod", "Deployment", "StatefulSet"]
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -129,5 +132,9 @@ webhooks:
         apiVersions: ["v1"]
         operations: ["CREATE"]
         resources: ["pods"]
+      - apiGroups: ["apps"]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["deployments", "statefulsets"]
     failurePolicy: Ignore
     sideEffects: None

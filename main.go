@@ -6,20 +6,25 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 
 	"golang.org/x/time/rate"
 	"gopkg.in/yaml.v3"
 	admissionv1 "k8s.io/api/admission/v1"
+	appsv1 "k8s.io/api/apps/v1"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type RateLimit struct {
 	Labels     map[string]string `yaml:"labels"`
+	Kinds      []string          `yaml:"kinds"`
 	RatePerSec float32           `yaml:"ratePerSec"`
 	Burst      int               `yaml:"burst"`
+	Limiter    *rate.Limiter     `yaml:"-"`
 }
 
 type RateLimitConfig struct {
@@ -31,6 +36,8 @@ var (
 	rateLimitConfig RateLimitConfig
 	limiters        map[string]*rate.Limiter
 )
+
+var knownKinds = []string{"Pod", "Deployment", "StatefulSet"}
 
 func main() {
 	loadRateLimitConfig()
@@ -66,23 +73,37 @@ func makeLimiters() {
 	if len(rateLimitConfig.DefaultLimit.Labels) > 0 {
 		log.Fatalf("Error: labels set on default limit")
 	}
-	if rateLimitConfig.DefaultLimit.RatePerSec == 0 || rateLimitConfig.DefaultLimit.Burst == 0 {
+	for _, kind := range rateLimitConfig.DefaultLimit.Kinds {
+		if !slices.Contains(knownKinds, kind) {
+			log.Fatalf("Error: unknown kind %s in default limit", kind)
+		}
+	}
+	if rateLimitConfig.DefaultLimit.RatePerSec == 0 ||
+		rateLimitConfig.DefaultLimit.Burst == 0 ||
+		len(rateLimitConfig.DefaultLimit.Kinds) == 0 {
 		log.Println("Not defining a default limiter")
 	} else {
-		limiters["default"] = rate.NewLimiter(
+		key := generateKeyFromLabelsAndKinds(rateLimitConfig.DefaultLimit.Labels, rateLimitConfig.DefaultLimit.Kinds)
+		limiters[key] = rate.NewLimiter(
 			rate.Limit(rateLimitConfig.DefaultLimit.RatePerSec),
 			rateLimitConfig.DefaultLimit.Burst,
 		)
+		log.Printf("created limiter %s\n", key)
 	}
 
 	for _, rule := range rateLimitConfig.Rules {
-		key := generateKeyFromLabels(rule.Labels)
+		for _, kind := range rule.Kinds {
+			if !slices.Contains(knownKinds, kind) {
+				log.Fatalf("Error: unknown kind %s in default limit", kind)
+			}
+		}
+		key := generateKeyFromLabelsAndKinds(rule.Labels, rule.Kinds)
 		if rule.Burst == 0 {
 			log.Println("Found burst of 0, setting to 1")
 			rule.Burst = 1
 		}
-		limiter := rate.NewLimiter(rate.Limit(rule.RatePerSec), rule.Burst)
-		limiters[key] = limiter
+		log.Printf("created limiter %s\n", key)
+		limiters[key] = rate.NewLimiter(rate.Limit(rule.RatePerSec), rule.Burst)
 	}
 }
 
@@ -93,20 +114,49 @@ func validatingHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var pod corev1.Pod
-	if err := json.Unmarshal(review.Request.Object.Raw, &pod); err != nil {
-		http.Error(w, "Error parsing pod spec: "+err.Error(), http.StatusBadRequest)
+	var labels map[string]string
+	var err error
+	var name string
+	kind := review.Request.Kind.Kind
+
+	switch kind {
+	case "Pod":
+		var pod corev1.Pod
+		if err := json.Unmarshal(review.Request.Object.Raw, &pod); err != nil {
+			http.Error(w, "Error parsing pod spec: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		name = pod.Name
+		labels = pod.Labels
+	case "Deployment":
+		var deployment appsv1.Deployment
+		if err := json.Unmarshal(review.Request.Object.Raw, &deployment); err != nil {
+			http.Error(w, "Error parsing deployment spec: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		name = deployment.Name
+		labels = deployment.Spec.Template.Labels
+	case "StatefulSet":
+		var statefulSet appsv1.StatefulSet
+		if err := json.Unmarshal(review.Request.Object.Raw, &statefulSet); err != nil {
+			http.Error(w, "Error parsing statefulset spec: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		name = statefulSet.Name
+		labels = statefulSet.Spec.Template.Labels
+	default:
+		http.Error(w, "Unsupported resource type", http.StatusBadRequest)
 		return
 	}
 
-	limiter, err := getLimiter(pod.Labels)
+	limiter, err := getLimiter(kind, labels)
 	var status, msg string
 	status = metav1.StatusSuccess
 	allowed := true
 
 	if err == nil {
-		log.Printf("Using a limiter\n")
 		allowed = limiter.Allow()
+		log.Printf("resource kind=%s name=%s being ratelimited: %t", kind, name, !allowed)
 		if !allowed {
 			status = metav1.StatusFailure
 			msg = "rate limit exceeded"
@@ -146,39 +196,46 @@ func livezHandler(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
-func getLimiter(podLabels map[string]string) (*rate.Limiter, error) {
-	key := getLimiterKey(podLabels)
+func getLimiter(kind string, labels map[string]string) (*rate.Limiter, error) {
+	key := getLimiterKey(kind, labels)
 	if limiter, found := limiters[key]; found {
 		return limiter, nil
 	}
 	return nil, fmt.Errorf("no limiter found for key %s", key)
 }
 
-func getLimiterKey(podLabels map[string]string) string {
+func getLimiterKey(kind string, labels map[string]string) string {
 	for _, rule := range rateLimitConfig.Rules {
-		if labelsMatch(podLabels, rule.Labels) {
-			return generateKeyFromLabels(rule.Labels)
+		if labelsMatchAndKindInList(labels, rule.Labels, kind, rule.Kinds) {
+			return generateKeyFromLabelsAndKinds(rule.Labels, rule.Kinds)
 		}
 	}
-	return "default"
+	if labelsMatchAndKindInList(labels, rateLimitConfig.DefaultLimit.Labels, kind, rateLimitConfig.DefaultLimit.Kinds) {
+		return generateKeyFromLabelsAndKinds(rateLimitConfig.DefaultLimit.Labels, rateLimitConfig.DefaultLimit.Kinds)
+	}
+	return ""
 }
 
-func labelsMatch(podLabels, ruleLabels map[string]string) bool {
+func labelsMatchAndKindInList(labels, ruleLabels map[string]string, kind string, ruleKinds []string) bool {
+	if !slices.Contains(ruleKinds, kind) {
+		return false
+	}
 	for k, v := range ruleLabels {
-		if podLabels[k] != v {
+		if labels[k] != v {
 			return false
 		}
 	}
 	return true
 }
 
-func generateKeyFromLabels(labels map[string]string) string {
-	keyParts := []string{}
+func generateKeyFromLabelsAndKinds(labels map[string]string, kinds []string) string {
+	var keyParts []string
 	for k, v := range labels {
 		keyParts = append(keyParts, fmt.Sprintf("%s=%s", k, v))
 	}
 	sort.Strings(keyParts)
-	return strings.Join(keyParts, ",")
+	keyParts = append(keyParts, fmt.Sprintf("kinds=%s", strings.Join(kinds, ",")))
+	return strings.Join(keyParts, ";")
 }
 
 func startServer() {
