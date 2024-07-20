@@ -7,8 +7,6 @@ import (
 	"net/http"
 	"os"
 	"slices"
-	"sort"
-	"strings"
 
 	"golang.org/x/time/rate"
 	"gopkg.in/yaml.v3"
@@ -34,9 +32,8 @@ type RateLimitConfig struct {
 
 var (
 	rateLimitConfig RateLimitConfig
+	knownKinds      = []string{"Pod", "Deployment", "StatefulSet"}
 )
-
-var knownKinds = []string{"Pod", "Deployment", "StatefulSet"}
 
 func main() {
 	loadRateLimitConfig()
@@ -214,16 +211,6 @@ func labelsMatchAndKindInList(labels, ruleLabels map[string]string, kind string,
 		}
 	}
 	return true
-}
-
-func generateKeyFromLabelsAndKinds(labels map[string]string, kinds []string) string {
-	var keyParts []string
-	for k, v := range labels {
-		keyParts = append(keyParts, fmt.Sprintf("%s=%s", k, v))
-	}
-	sort.Strings(keyParts)
-	keyParts = append(keyParts, fmt.Sprintf("kinds=%s", strings.Join(kinds, ",")))
-	return strings.Join(keyParts, ";")
 }
 
 func startServer() {
