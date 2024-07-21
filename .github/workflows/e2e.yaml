@@ -1,32 +1,28 @@
-name: integration-test
+name: e2e
 on: pull_request
 
 jobs:
-  integration-test:
+  e2e:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.x"
+
       - uses: actions/checkout@v4
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build image
-        uses: docker/build-push-action@v6
-        with:
-          push: false
-          load: true
-          tags: k8slimiter:0.1.0
-          file: Dockerfile
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - uses: ko-build/setup-ko@v0.7
 
       - name: Create k8s Kind Cluster
         uses: helm/kind-action@v1.10.0
         with:
           cluster_name: kind
+
+      - name: Build k8smultiarcher image
+        env:
+          KO_DOCKER_REPO: kind.local
+        run: |
+          ko build -B --platform linux/amd64 .
 
       - name: Install cert-manager
         run: |
@@ -35,15 +31,11 @@ jobs:
           kubectl wait --for=condition=available --timeout=60s deployment/cert-manager-cainjector -n cert-manager
           kubectl wait --for=condition=available --timeout=60s deployment/cert-manager-webhook -n cert-manager
 
-      - name: Load image into Kind
-        run: |
-          kind load docker-image k8slimiter:0.1.0
-
       - name: Install k8slimiter
         run: |
-          kubectl apply -f manifests/k8slimiter.yaml
+          kubectl apply -f test/k8slimiter-kind.yaml
           kubectl wait --for=condition=available --timeout=60s deployment/k8slimiter-deployment -n k8slimiter
-          sleep 10
+          sleep 5
 
       - name: Test k8slimiter
         run: |

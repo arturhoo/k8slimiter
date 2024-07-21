@@ -70,7 +70,8 @@ spec:
     spec:
       containers:
         - name: k8slimiter
-          image: k8slimiter:0.1.0
+          image: kind.local/k8slimiter:latest
+          imagePullPolicy: IfNotPresent
           env:
             - name: TLS_ENABLED
               value: "true"

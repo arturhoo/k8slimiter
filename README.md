@@ -42,16 +42,10 @@ Create a cluster:
 $ kind create cluster
 ```
 
-Build the image:
+Build and load the image:
 
 ```
-$ docker build -t k8slimiter:0.1.0 .
-```
-
-Load the image into the cluster:
-
-```
-$ kind load docker-image k8slimiter:0.1.0
+$ KO_DOCKER_REPO=kind.local ko build -B
 ```
 
 Install cert-manager in the cluster:
@@ -63,7 +57,7 @@ $ kubectl apply -f https://github.com/cert-manager/cert-manager/releases/downloa
 Finally, install k8slimiter:
 
 ```
-$ kubectl apply -f manifests/k8slimiter.yaml
+$ kubectl apply -f test/k8slimiter-kind.yaml
 ```
 
 Port-forward the service locally:
