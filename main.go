@@ -13,22 +13,13 @@ func main() {
 	CreateLimiters()
 
 	http.HandleFunc("/validate", ValidatingHandler)
-	http.HandleFunc("/healthz", healthzHandler)
-	http.HandleFunc("/livez", livezHandler)
+	http.HandleFunc("/healthz", statusHandler)
+	http.HandleFunc("/livez", statusHandler)
 
 	startServer()
 }
 
-func healthzHandler(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	err := json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
-	if err != nil {
-		http.Error(w, "Error encoding response: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-func livezHandler(w http.ResponseWriter, _ *http.Request) {
+func statusHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	err := json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	if err != nil {
