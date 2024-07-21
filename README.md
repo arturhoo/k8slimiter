@@ -1,21 +1,23 @@
 # k8slimiter
 
-Rate Limits through Validating Webhooks in Kubernetes
+Rate limits for Pods, Deployments and StatefulSets through Validating Webhooks in Kubernetes
 
 For context, please refer to: [Rate limiting Kubernetes pod creation with dynamic admission control](https://www.artur-rodrigues.com/tech/2023/10/22/rate-limiting-kubernetes-pod-creation.html)
 
 ## Local Development
 
-Generate local certs:
+Generate local certs and an empty config file:
 
 ```
 $ mkcert -cert-file ./certs/tls.crt -key-file ./certs/tls.key localhost
+$ export CONFIG_PATH=/tmp/k8slimiter-config.yaml
+$ touch $CONFIG_PATH
 ```
 
 Run the server:
 
 ```
-$ TLS_ENABLED=true go run main.go
+$ TLS_ENABLED=true go run .
 ```
 
 Test the server:
