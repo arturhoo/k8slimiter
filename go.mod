@@ -3,7 +3,7 @@ module github.com/arturhoo/k8slimiter
 go 1.22.5
 
 require (
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	golang.org/x/time v0.5.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.30.3
