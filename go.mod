@@ -1,6 +1,6 @@
 module github.com/arturhoo/k8slimiter
 
-go 1.22.5
+go 1.23.2
 
 require (
 	github.com/stretchr/testify v1.9.0
