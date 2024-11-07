@@ -4,7 +4,7 @@ go 1.23.2
 
 require (
 	github.com/stretchr/testify v1.9.0
-	golang.org/x/time v0.7.0
+	golang.org/x/time v0.8.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.31.2
 	k8s.io/apimachinery v0.31.2
