@@ -6,9 +6,9 @@ linters:
   fast: false
   enable:
     - bodyclose
+    - copyloopvar
     - durationcheck
     - errcheck
-    - exportloopref
     - goconst
     - gocritic
     - gocyclo
@@ -24,9 +24,9 @@ linters:
     - prealloc
     - revive
     - staticcheck
-    - tenv
     - typecheck
     - unconvert
+    - usetesting
     - unused
     - wastedassign
     - whitespace
