@@ -1,9 +1,8 @@
+version: "2"
 run:
-  timeout: 5m
   allow-parallel-runners: true
 linters:
-  disable-all: true
-  fast: false
+  default: none
   enable:
     - bodyclose
     - copyloopvar
@@ -12,11 +11,7 @@ linters:
     - goconst
     - gocritic
     - gocyclo
-    - gofmt
-    - gofumpt
-    - goimports
     - gomodguard
-    - gosimple
     - govet
     - ineffassign
     - lll
@@ -24,15 +19,36 @@ linters:
     - prealloc
     - revive
     - staticcheck
-    - typecheck
     - unconvert
-    - usetesting
     - unused
+    - usetesting
     - wastedassign
     - whitespace
-linters-settings:
-  gocyclo:
-    min-complexity: 40
-  errcheck:
-    check-type-assertions: true
-    check-blank: true
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+    gocyclo:
+      min-complexity: 40
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
