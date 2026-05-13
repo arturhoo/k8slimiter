@@ -29,9 +29,15 @@ type RateLimitConfig struct {
 	DefaultLimit RateLimit   `yaml:"defaultLimit"`
 }
 
+const (
+	kindPod         = "Pod"
+	kindDeployment  = "Deployment"
+	kindStatefulSet = "StatefulSet"
+)
+
 var (
 	rateLimitConfig RateLimitConfig
-	knownKinds      = []string{"Pod", "Deployment", "StatefulSet"}
+	knownKinds      = []string{kindPod, kindDeployment, kindStatefulSet}
 )
 
 func LoadRateLimitConfig() {
@@ -101,7 +107,7 @@ func ValidatingHandler(w http.ResponseWriter, r *http.Request) {
 	kind := review.Request.Kind.Kind
 
 	switch kind {
-	case "Pod":
+	case kindPod:
 		var pod corev1.Pod
 		if err := json.Unmarshal(review.Request.Object.Raw, &pod); err != nil {
 			http.Error(w, "Error parsing pod spec: "+err.Error(), http.StatusBadRequest)
@@ -109,7 +115,7 @@ func ValidatingHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		name = pod.Name
 		labels = pod.Labels
-	case "Deployment":
+	case kindDeployment:
 		var deployment appsv1.Deployment
 		if err := json.Unmarshal(review.Request.Object.Raw, &deployment); err != nil {
 			http.Error(w, "Error parsing deployment spec: "+err.Error(), http.StatusBadRequest)
@@ -117,7 +123,7 @@ func ValidatingHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		name = deployment.Name
 		labels = deployment.Spec.Template.Labels
-	case "StatefulSet":
+	case kindStatefulSet:
 		var statefulSet appsv1.StatefulSet
 		if err := json.Unmarshal(review.Request.Object.Raw, &statefulSet); err != nil {
 			http.Error(w, "Error parsing statefulset spec: "+err.Error(), http.StatusBadRequest)

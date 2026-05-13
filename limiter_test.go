@@ -17,18 +17,24 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+const (
+	appLabel     = "app"
+	testName     = "test"
+	validatePath = "/validate"
+)
+
 func TestCreateLimiters(t *testing.T) {
 	rateLimitConfig = RateLimitConfig{
 		Rules: []RateLimit{
 			{
-				Labels:     map[string]string{"app": "test"},
-				Kinds:      []string{"Pod"},
+				Labels:     map[string]string{appLabel: testName},
+				Kinds:      []string{kindPod},
 				RatePerSec: 1,
 				Burst:      5,
 			},
 		},
 		DefaultLimit: RateLimit{
-			Kinds:      []string{"Pod", "Deployment"},
+			Kinds:      []string{kindPod, kindDeployment},
 			RatePerSec: 0.5,
 			Burst:      3,
 		},
@@ -43,14 +49,14 @@ func TestGetLimiter(t *testing.T) {
 	rateLimitConfig = RateLimitConfig{
 		Rules: []RateLimit{
 			{
-				Labels:     map[string]string{"app": "test"},
-				Kinds:      []string{"Pod"},
+				Labels:     map[string]string{appLabel: testName},
+				Kinds:      []string{kindPod},
 				RatePerSec: 1,
 				Burst:      5,
 			},
 		},
 		DefaultLimit: RateLimit{
-			Kinds:      []string{"Pod", "Deployment"},
+			Kinds:      []string{kindPod, kindDeployment},
 			RatePerSec: 0.5,
 			Burst:      3,
 		},
@@ -66,14 +72,14 @@ func TestGetLimiter(t *testing.T) {
 	}{
 		{
 			name:            "Matching rule",
-			kind:            "Pod",
-			labels:          map[string]string{"app": "test"},
+			kind:            kindPod,
+			labels:          map[string]string{appLabel: testName},
 			expectedError:   false,
 			expectedLimiter: rateLimitConfig.Rules[0].Limiter,
 		},
 		{
 			name:            "Default limit",
-			kind:            "Deployment",
+			kind:            kindDeployment,
 			labels:          map[string]string{},
 			expectedError:   false,
 			expectedLimiter: rateLimitConfig.DefaultLimit.Limiter,
@@ -103,7 +109,7 @@ func TestGetLimiter(t *testing.T) {
 func TestValidatingHandler(t *testing.T) {
 	rateLimitConfig = RateLimitConfig{
 		DefaultLimit: RateLimit{
-			Kinds:      []string{"Pod"},
+			Kinds:      []string{kindPod},
 			RatePerSec: 10,
 			Burst:      1,
 		},
@@ -116,7 +122,7 @@ func TestValidatingHandler(t *testing.T) {
 			Name: "test-pod-1",
 		},
 		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{{Name: "test", Image: "test"}},
+			Containers: []corev1.Container{{Name: testName, Image: testName}},
 		},
 	}
 	rawPod, err := json.Marshal(pod)
@@ -125,7 +131,7 @@ func TestValidatingHandler(t *testing.T) {
 	}
 	review := admissionv1.AdmissionReview{
 		Request: &admissionv1.AdmissionRequest{
-			Kind:   metav1.GroupVersionKind{Kind: "Pod"},
+			Kind:   metav1.GroupVersionKind{Kind: kindPod},
 			Object: runtime.RawExtension{Raw: rawPod},
 		},
 	}
@@ -135,7 +141,7 @@ func TestValidatingHandler(t *testing.T) {
 	}
 
 	// First request should be allowed
-	req := httptest.NewRequest("POST", "/validate", bytes.NewBuffer(body))
+	req := httptest.NewRequest(http.MethodPost, validatePath, bytes.NewBuffer(body))
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -145,7 +151,7 @@ func TestValidatingHandler(t *testing.T) {
 	assert.True(t, response.Response.Allowed)
 
 	// Without sleeping, try to create another pod and ensure it is denied
-	req = httptest.NewRequest("POST", "/validate", bytes.NewBuffer(body))
+	req = httptest.NewRequest(http.MethodPost, validatePath, bytes.NewBuffer(body))
 	rr = httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -155,7 +161,7 @@ func TestValidatingHandler(t *testing.T) {
 
 	// Sleep for 120ms, try to create another pod and ensure it is allowed
 	time.Sleep(120 * time.Millisecond)
-	req = httptest.NewRequest("POST", "/validate", bytes.NewBuffer(body))
+	req = httptest.NewRequest(http.MethodPost, validatePath, bytes.NewBuffer(body))
 	rr = httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code)
