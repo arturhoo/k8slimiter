@@ -17,18 +17,20 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+const appLabel = "app"
+
 func TestCreateLimiters(t *testing.T) {
 	rateLimitConfig = RateLimitConfig{
 		Rules: []RateLimit{
 			{
-				Labels:     map[string]string{"app": "test"},
-				Kinds:      []string{"Pod"},
+				Labels:     map[string]string{appLabel: "test"},
+				Kinds:      []string{kindPod},
 				RatePerSec: 1,
 				Burst:      5,
 			},
 		},
 		DefaultLimit: RateLimit{
-			Kinds:      []string{"Pod", "Deployment"},
+			Kinds:      []string{kindPod, kindDeployment},
 			RatePerSec: 0.5,
 			Burst:      3,
 		},
@@ -43,14 +45,14 @@ func TestGetLimiter(t *testing.T) {
 	rateLimitConfig = RateLimitConfig{
 		Rules: []RateLimit{
 			{
-				Labels:     map[string]string{"app": "test"},
-				Kinds:      []string{"Pod"},
+				Labels:     map[string]string{appLabel: "test"},
+				Kinds:      []string{kindPod},
 				RatePerSec: 1,
 				Burst:      5,
 			},
 		},
 		DefaultLimit: RateLimit{
-			Kinds:      []string{"Pod", "Deployment"},
+			Kinds:      []string{kindPod, kindDeployment},
 			RatePerSec: 0.5,
 			Burst:      3,
 		},
@@ -66,14 +68,14 @@ func TestGetLimiter(t *testing.T) {
 	}{
 		{
 			name:            "Matching rule",
-			kind:            "Pod",
-			labels:          map[string]string{"app": "test"},
+			kind:            kindPod,
+			labels:          map[string]string{appLabel: "test"},
 			expectedError:   false,
 			expectedLimiter: rateLimitConfig.Rules[0].Limiter,
 		},
 		{
 			name:            "Default limit",
-			kind:            "Deployment",
+			kind:            kindDeployment,
 			labels:          map[string]string{},
 			expectedError:   false,
 			expectedLimiter: rateLimitConfig.DefaultLimit.Limiter,
@@ -103,7 +105,7 @@ func TestGetLimiter(t *testing.T) {
 func TestValidatingHandler(t *testing.T) {
 	rateLimitConfig = RateLimitConfig{
 		DefaultLimit: RateLimit{
-			Kinds:      []string{"Pod"},
+			Kinds:      []string{kindPod},
 			RatePerSec: 10,
 			Burst:      1,
 		},
@@ -125,7 +127,7 @@ func TestValidatingHandler(t *testing.T) {
 	}
 	review := admissionv1.AdmissionReview{
 		Request: &admissionv1.AdmissionRequest{
-			Kind:   metav1.GroupVersionKind{Kind: "Pod"},
+			Kind:   metav1.GroupVersionKind{Kind: kindPod},
 			Object: runtime.RawExtension{Raw: rawPod},
 		},
 	}
